@@ -45,14 +45,31 @@ export class PanelIntegration {
         if (this._mounted) return;
         const center = Main.panel._centerBox;
 
-        // MODIFICA LOCALE: qui prima il menu data veniva spostato a forza nel
-        // box di sinistra. Ma just-perfection ha una propria impostazione per
-        // la posizione dell'orologio e la riapplica: due estensioni che
-        // spostano lo stesso oggetto se lo tolgono a vicenda, e il risultato
-        // e' che l'ora finisce dove capita o non si vede affatto.
+        // MODIFICA LOCALE: il menu data (orologio + calendario) si sposta nel
+        // box di sinistra, cosi' il centro resta libero per l'isola.
         //
-        // Ora non lo tocchiamo: dove sta l'orologio lo decide chi ha
-        // l'impostazione apposta. Noi ci prendiamo solo il centro.
+        // Due avvertenze imparate a caro prezzo:
+        //   - l'orologio NON si nasconde. L'originale lo sostituiva con
+        //     un'icona dando per scontato che l'ora la mostrasse l'isola, ma
+        //     basta una notifica non letta (attivita' persistente) per
+        //     occupare l'isola a tempo indeterminato e restare senza ora.
+        //   - questo spostamento funziona solo se nessun'altra estensione
+        //     rivendica la posizione dell'orologio. just-perfection lo fa
+        //     tramite clock-menu-position e se e' attiva vince lei: in quel
+        //     caso conviene disattivarla o lasciarle il compito.
+        if (this._dateMenu) {
+            const container = this._dateMenu.container;
+            this._dateMenuParent = container.get_parent();
+            if (this._dateMenuParent) {
+                this._dateMenuIndex =
+                    this._dateMenuParent.get_children().indexOf(container);
+                this._dateMenuParent.remove_child(container);
+                Main.panel._leftBox.add_child(container);
+                container.show();
+                this._dateMenu._clockDisplay?.show();   // l'ora resta l'ora
+            }
+        }
+
         center.add_child(this._view);
         this._mounted = true;
 
@@ -78,6 +95,19 @@ export class PanelIntegration {
         // Rete di sicurezza: se una versione precedente aveva lasciato
         // l'orologio nascosto, qui torna visibile.
         this._restoreClock();
+
+        if (this._dateMenu && this._dateMenuParent) {
+            // Rimette il menu data dove stava, all'indice originale.
+            const container = this._dateMenu.container;
+            const parent = container.get_parent();
+            if (parent) parent.remove_child(container);
+            if (this._dateMenuIndex >= 0)
+                this._dateMenuParent.insert_child_at_index(container, this._dateMenuIndex);
+            else
+                this._dateMenuParent.add_child(container);
+            container.show();
+            this._dateMenu._clockDisplay?.show();
+        }
 
         this._mounted = false;
     }
