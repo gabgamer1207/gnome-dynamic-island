@@ -45,23 +45,14 @@ export class PanelIntegration {
         if (this._mounted) return;
         const center = Main.panel._centerBox;
 
-        if (this._dateMenu) {
-            // MODIFICA LOCALE: l'originale nascondeva il menu data, facendo
-            // perdere calendario e notifiche. Qui invece lo spostiamo nel box
-            // di sinistra: l'isola si prende il centro, il calendario resta
-            // raggiungibile. La posizione originale viene ripristinata in unmount().
-            const container = this._dateMenu.container;
-            this._dateMenuParent = container.get_parent();
-            if (this._dateMenuParent) {
-                this._dateMenuIndex =
-                    this._dateMenuParent.get_children().indexOf(container);
-                this._dateMenuParent.remove_child(container);
-                Main.panel._leftBox.add_child(container);
-                container.show();
-                this._replaceClockWithIcon();
-            }
-        }
-
+        // MODIFICA LOCALE: qui prima il menu data veniva spostato a forza nel
+        // box di sinistra. Ma just-perfection ha una propria impostazione per
+        // la posizione dell'orologio e la riapplica: due estensioni che
+        // spostano lo stesso oggetto se lo tolgono a vicenda, e il risultato
+        // e' che l'ora finisce dove capita o non si vede affatto.
+        //
+        // Ora non lo tocchiamo: dove sta l'orologio lo decide chi ha
+        // l'impostazione apposta. Noi ci prendiamo solo il centro.
         center.add_child(this._view);
         this._mounted = true;
 
@@ -84,19 +75,10 @@ export class PanelIntegration {
         const center = Main.panel._centerBox;
         if (this._view.get_parent() === center) center.remove_child(this._view);
 
+        // Rete di sicurezza: se una versione precedente aveva lasciato
+        // l'orologio nascosto, qui torna visibile.
         this._restoreClock();
 
-        if (this._dateMenu && this._dateMenuParent) {
-            // Rimette il menu data dove stava, all'indice originale.
-            const container = this._dateMenu.container;
-            const parent = container.get_parent();
-            if (parent) parent.remove_child(container);
-            if (this._dateMenuIndex >= 0)
-                this._dateMenuParent.insert_child_at_index(container, this._dateMenuIndex);
-            else
-                this._dateMenuParent.add_child(container);
-            container.show();
-        }
         this._mounted = false;
     }
 
