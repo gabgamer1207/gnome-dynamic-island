@@ -6,7 +6,13 @@
     color: #f0f0f0;
     padding: 4px 12px;
     min-height: 20px;
-    transition: all 220ms ease-out;
+    /* MODIFICA LOCALE: qui c'era "transition: all 220ms ease-out", che St non
+       sa interpretare: GNOME supporta solo transition-duration, non la forma
+       abbreviata ne' le timing function. Il risultato era che la pillola non
+       animava per niente e cambiava forma di scatto.
+       La geometria ora la anima island-view.js in JS, con una curva a molla;
+       questa duration copre colori e bordi. */
+    transition-duration: 250ms;
     /* GNOME CSS does not support backdrop-filter; we lean on base panel blur. */
 }
 

@@ -45,6 +45,84 @@ class IslandView extends St.Widget {
         this._settings = null;
         this._settingsHandlers = [];
         this._lastVM = null;
+
+        // MODIFICA LOCALE: teniamo traccia dello stato per animare solo i
+        // cambi veri, e mettiamo il perno al centro cosi' lo "schiacciamento"
+        // parte dal mezzo della pillola e non dall'angolo.
+        this._currentState = null;
+        this.set_pivot_point(0.5, 0.5);
+    }
+
+    // MODIFICA LOCALE: alcune curve potrebbero non esserci su versioni
+    // diverse di Clutter; in quel caso si ripiega su una decelerazione
+    // normale invece di far esplodere l'estensione.
+    _mode(nome) {
+        return Clutter.AnimationMode[nome] ?? Clutter.AnimationMode.EASE_OUT_CUBIC;
+    }
+
+    // MODIFICA LOCALE: rientro animato del testo di base (orario o attivita').
+    _entraBase() {
+        this._baseLabel.remove_all_transitions();
+        this._baseLabel.opacity = 0;
+        this._baseLabel.translation_y = 5;
+        this._baseLabel.show();
+        this._baseLabel.ease({
+            opacity: 255,
+            translation_y: 0,
+            duration: 220,
+            mode: this._mode('EASE_OUT_CUBIC'),
+        });
+    }
+
+    // MODIFICA LOCALE: rete di sicurezza. Riporta il testo di base allo stato
+    // pieno e visibile senza animazioni, qualunque cosa sia successo prima.
+    // Serve perche' l'orario a riposo non deve MAI poter restare invisibile.
+    _resetBase() {
+        this._baseLabel.remove_all_transitions();
+        this._baseLabel.opacity = 255;
+        this._baseLabel.translation_y = 0;
+        this._baseLabel.show();
+        this._flashLabel.translation_y = 0;
+    }
+
+    // MODIFICA LOCALE
+    // La Dynamic Island vera non usa una curva di easing: usa una molla.
+    // Parte decisa, supera di poco la misura finale e si assesta. Per questo
+    // in apertura serve EASE_OUT_BACK, che quel sorpasso ce l'ha.
+    // In chiusura invece si usa EASE_OUT_QUINT: un rimbalzo mentre l'oggetto
+    // si richiude non sembra elastico, sembra un errore.
+    _morph() {
+        const da = this.get_width();
+        this.set_width(-1);                        // rimisura al naturale
+        const a = this.get_preferred_width(-1)[1];
+        if (!da || !a || Math.abs(a - da) < 2) { this.set_width(-1); return; }
+
+        const espande = a > da;
+
+        this.remove_transition('width');
+        this.remove_transition('scale-y');
+
+        this.set_width(da);
+        this.ease({
+            width: a,
+            duration: espande ? 340 : 380,
+            mode: espande ? this._mode('EASE_OUT_BACK') : this._mode('EASE_OUT_QUINT'),
+            // Va tolta la larghezza fissa quando l'animazione finisce,
+            // altrimenti la pillola non si adatta piu' al testo che cambia.
+            // onStopped e non onComplete: scatta anche se l'animazione viene
+            // interrotta a meta' da un nuovo cambio di stato. Con onComplete
+            // una larghezza fissa poteva restare incastrata li' per sempre.
+            onStopped: () => this.set_width(-1),
+        });
+
+        // Micro schiacciamento verticale: e' quello che fa percepire materia
+        // elastica invece di un rettangolo che cambia numero.
+        this.scale_y = espande ? 0.92 : 1.05;
+        this.ease({
+            scale_y: 1,
+            duration: 300,
+            mode: this._mode('EASE_OUT_BACK'),
+        });
     }
 
     setSettings(settings) {
@@ -72,7 +150,22 @@ class IslandView extends St.Widget {
         this._baseLabel.text = basePrimary ? this._formatBase(vm, basePrimary) : idleText;
         this.accessible_name = basePrimary ? basePrimary.label : (idleText || _('Dynamic Island (idle)'));
 
+        // MODIFICA LOCALE: la geometria non passa piu' dal CSS (St ignora le
+        // timing function e faceva scattare la pillola da una misura all'altra).
+        // Va DOPO l'aggiornamento del testo: _morph misura la larghezza
+        // naturale, e con il testo vecchio misurerebbe la larghezza sbagliata.
+        // Al primo giro non animiamo: non c'e' uno stato da cui partire.
+        if (this._currentState !== vm.baseState) {
+            const primoGiro = this._currentState === null;
+            this._currentState = vm.baseState;
+            if (!primoGiro) this._morph();
+        }
+
         // Transient overlay lifecycle.
+        // MODIFICA LOCALE: il testo entra da sotto e esce verso l'alto, invece
+        // di apparire e sparire sul posto. Una dissolvenza secca si legge come
+        // "lo schermo e' cambiato"; uno scorrimento si legge come "l'oggetto si
+        // e' mosso", ed e' quella la differenza che rende viva l'animazione.
         if (vm.flashing) {
             this._baseLabel.hide();
             if (vm.flashing.id !== this._currentFlashId) {
@@ -80,33 +173,42 @@ class IslandView extends St.Widget {
                 this._flashLabel.text = vm.flashing.sublabel
                     ? `${vm.flashing.label} — ${vm.flashing.sublabel}`
                     : vm.flashing.label;
+                this._flashLabel.remove_all_transitions();
+                this._flashLabel.opacity = 0;
+                this._flashLabel.translation_y = 7;
                 this._flashLabel.show();
                 this._flashLabel.ease({
                     opacity: 255,
-                    duration: 120,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    translation_y: 0,
+                    duration: 260,
+                    mode: this._mode('EASE_OUT_BACK'),
                 });
                 this.add_style_class_name('flashing');
                 this.accessible_description = format(_('Flash: %s'), vm.flashing.label);
             }
         } else if (this._currentFlashId) {
             this._currentFlashId = null;
+            this._flashLabel.remove_all_transitions();
             this._flashLabel.ease({
                 opacity: 0,
-                duration: 120,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    if (!this._currentFlashId) {
-                        this._flashLabel.hide();
-                        this._baseLabel.show();
-                    }
-                },
+                translation_y: -7,
+                // L'uscita e' piu' rapida dell'entrata: cosi' la pillola
+                // sembra reattiva invece che lenta a liberarsi.
+                duration: 180,
+                mode: this._mode('EASE_IN_QUAD'),
+                onStopped: () => { if (!this._currentFlashId) this._flashLabel.hide(); },
             });
+            // MODIFICA LOCALE: il testo di base rientra SUBITO, in dissolvenza
+            // incrociata con l'uscita del flash, invece di aspettarne la fine.
+            // Prima dipendeva da onComplete: se arrivava una seconda notifica
+            // mentre la prima usciva, quella transizione veniva annullata, la
+            // callback non scattava piu' e l'orario spariva per sempre.
+            this._entraBase();
             this.remove_style_class_name('flashing');
             this.accessible_description = '';
         } else {
             this._flashLabel.hide();
-            this._baseLabel.show();
+            this._resetBase();
         }
     }
 
