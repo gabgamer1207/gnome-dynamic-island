@@ -8,10 +8,11 @@ import { format } from './i18n.js';
 import { providerDisplayName } from './provider-display.js';
 
 export class InteractionController {
-    constructor(view, manager, extension) {
+    constructor(view, manager, extension, expanded = null) {
         this._view = view;
         this._manager = manager;
         this._extension = extension;
+        this._expanded = expanded;
         this._handlers = [];
         this._contextMenu = null;
 
@@ -27,11 +28,7 @@ export class InteractionController {
             view.connect('button-press-event', (_a, ev) => {
                 const btn = ev.get_button();
                 if (btn === Clutter.BUTTON_PRIMARY) {
-                    // MODIFICA LOCALE: il click sinistro si limitava a fare
-                    // toggle del "pin", quindi le notifiche non si aprivano
-                    // mai. Ora apre la lista notifiche e il calendario, che
-                    // e' quello che ci si aspetta cliccando sull'isola.
-                    this._toggleMessageList();
+                    this._clickPrincipale();
                     return Clutter.EVENT_STOP;
                 }
                 if (btn === Clutter.BUTTON_MIDDLE) {
@@ -55,9 +52,35 @@ export class InteractionController {
         );
     }
 
-    // MODIFICA LOCALE: apre il menu data, che contiene lista notifiche e
-    // calendario. E' lo stesso menu dell'orologio di GNOME: panel-integration
-    // lo sposta nel box di sinistra, ma resta questo l'oggetto da aprire.
+    // MODIFICA LOCALE
+    // Il click sinistro fa la cosa sensata a seconda di cosa c'e' nell'isola:
+    //   - se c'e' un'attivita' in corso, apre la scheda espansa (musica,
+    //     timer, batteria...), che e' il gesto della Dynamic Island vera;
+    //   - se l'isola e' a riposo e mostra solo l'ora, apre notifiche e
+    //     calendario, che e' il gesto dell'orologio di GNOME.
+    // In entrambi i casi il click porta dove ci si aspetta, senza dover
+    // ricordare due gesti diversi.
+    _clickPrincipale() {
+        if (this._expanded?.isOpen) { this._expanded.close(); return; }
+
+        const vm = this._manager._lastVM;
+        const attivita = vm?.flashing ?? vm?.leading ?? vm?.trailing;
+
+        if (attivita && this._expanded) {
+            if (this._contextMenu?.isOpen) this._contextMenu.close();
+            const dateMenu = Main.panel.statusArea?.dateMenu;
+            if (dateMenu?.menu?.isOpen) dateMenu.menu.close();
+            this._expanded.setActivity(attivita);
+            this._expanded.open();
+            return;
+        }
+
+        this._toggleMessageList();
+    }
+
+    // Apre il menu data, che contiene lista notifiche e calendario. E' lo
+    // stesso menu dell'orologio di GNOME: panel-integration lo sposta nel box
+    // di sinistra, ma resta questo l'oggetto da aprire.
     _toggleMessageList() {
         const dateMenu = Main.panel.statusArea?.dateMenu;
         if (!dateMenu?.menu) return;

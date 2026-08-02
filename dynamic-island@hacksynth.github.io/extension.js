@@ -5,6 +5,7 @@ import { ActivityManager } from './src/activity-manager.js';
 import { IslandView } from './src/island-view.js';
 import { PanelIntegration } from './src/panel-integration.js';
 import { InteractionController } from './src/interaction-controller.js';
+import { ExpandedIsland } from './src/expanded-island.js';
 import { KeyboardProvider } from './src/providers/keyboard.js';
 import { PowerProvider } from './src/providers/power.js';
 import { VolumeBrightnessProvider } from './src/providers/volume-brightness.js';
@@ -19,10 +20,24 @@ export default class DynamicIslandExtension extends Extension {
         this._manager = new ActivityManager();
         this._view = new IslandView();
         this._view.setSettings(settings);
-        this._unsub = this._manager.subscribe(vm => this._view.setViewModel(vm));
         this._panel = new PanelIntegration(this._view);
         this._panel.mount();
-        this._interaction = new InteractionController(this._view, this._manager, this);
+
+        // La scheda espansa vive fuori dal pannello: va costruita dopo il
+        // mount, perche' si posiziona misurando dove sta la pillola.
+        this._expanded = new ExpandedIsland(this._view);
+
+        this._unsub = this._manager.subscribe(vm => {
+            this._view.setViewModel(vm);
+            // Mentre la scheda e' aperta il contenuto resta aggiornato: se la
+            // canzone cambia, cambia sotto gli occhi invece di richiedere una
+            // riapertura.
+            if (this._expanded?.isOpen)
+                this._expanded.setActivity(vm.flashing ?? vm.leading ?? vm.trailing);
+        });
+
+        this._interaction = new InteractionController(
+            this._view, this._manager, this, this._expanded);
 
         // 250ms ticker to expire transients.
         this._tickId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
@@ -73,6 +88,7 @@ export default class DynamicIslandExtension extends Extension {
         this._providers = [];
 
         this._interaction?.destroy(); this._interaction = null;
+        this._expanded?.destroy(); this._expanded = null;
         this._panel?.destroy(); this._panel = null;
         this._unsub?.(); this._unsub = null;
         this._view?.destroy(); this._view = null;

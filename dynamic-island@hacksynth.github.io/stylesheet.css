@@ -78,3 +78,56 @@
 .dynisland-label { font-size: 11pt; }
 .dynisland-sublabel { color: rgba(240, 240, 240, 0.7); font-size: 9pt; }
 .light .dynisland-sublabel { color: rgba(0, 0, 0, 0.6); }
+
+/* ==========================================================================
+   Scheda espansa (src/expanded-island.js)
+   Vive fuori dal pannello, quindi qui non valgono i vincoli di altezza.
+   Il border-radius NON si imposta qui: lo anima il JS inline, perche' deve
+   passare da "pillola" a "scheda" in sincrono con la geometria.
+   ========================================================================== */
+
+.dynisland-backdrop {
+    background-color: transparent;
+}
+
+.dynisland-card {
+    background-color: rgba(28, 28, 30, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: #f0f0f0;
+    padding: 14px 18px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.dynisland-card-row {
+    spacing: 14px;
+}
+
+.dynisland-card-icon {
+    icon-size: 36px;
+    color: rgba(240, 240, 240, 0.95);
+}
+
+.dynisland-card-text {
+    spacing: 2px;
+}
+
+.dynisland-card-title {
+    font-size: 13pt;
+    font-weight: bold;
+}
+
+.dynisland-card-subtitle {
+    font-size: 10pt;
+    color: rgba(240, 240, 240, 0.65);
+}
+
+/* Tema chiaro */
+.light .dynisland-card {
+    background-color: rgba(250, 250, 250, 0.94);
+    border-color: rgba(0, 0, 0, 0.10);
+    color: #1c1c1e;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+.light .dynisland-card-icon { color: rgba(28, 28, 30, 0.95); }
+.light .dynisland-card-subtitle { color: rgba(28, 28, 30, 0.60); }
