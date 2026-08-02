@@ -61,8 +61,28 @@ export class PanelIntegration {
             Main.panel.statusArea?.dateMenu?.menu?.toggle();
         });
 
-        Main.panel._leftBox.add_child(this._orologio);
+        const box = Main.panel._leftBox;
+        log(`DYNISLAND-DIAG leftBox=${!!box} figli_prima=${box?.get_n_children()}`);
+        box.add_child(this._orologio);
         this._aggiornaOra();
+
+        // Diagnostica: l'allocazione reale si conosce solo dopo un giro di
+        // layout, non subito dopo add_child.
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+            const [w, h] = this._orologio?.get_size() ?? [0, 0];
+            const [x, y] = this._orologio?.get_transformed_position() ?? [0, 0];
+            log(`DYNISLAND-DIAG orologio testo="${this._etichettaOra?.text}" ` +
+                `size=${w}x${h} pos=${x},${y} visible=${this._orologio?.visible} ` +
+                `opacity=${this._orologio?.opacity} mapped=${this._orologio?.mapped}`);
+            log(`DYNISLAND-DIAG leftBox figli_dopo=${box.get_n_children()} ` +
+                `boxSize=${box.get_width()}x${box.get_height()} ` +
+                `boxPos=${box.get_transformed_position()}`);
+            for (const c of box.get_children()) {
+                log(`DYNISLAND-DIAG   figlio ${c.constructor.name} ` +
+                    `visible=${c.visible} size=${c.get_width()}x${c.get_height()}`);
+            }
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _aggiornaOra() {

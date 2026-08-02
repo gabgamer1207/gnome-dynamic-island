@@ -22,7 +22,7 @@ export class MediaView {
         this._artUrl = null;
 
         this.actor = new St.BoxLayout({
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             style_class: 'dynisland-media',
             x_expand: true,
         });

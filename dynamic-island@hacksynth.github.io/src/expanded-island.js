@@ -43,7 +43,7 @@ export class ExpandedIsland {
         });
 
         this._scheda = new St.BoxLayout({
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             reactive: true,
             can_focus: true,
             visible: false,
@@ -70,7 +70,7 @@ export class ExpandedIsland {
         this._riga.add_child(this._icona);
 
         const testi = new St.BoxLayout({
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             y_align: Clutter.ActorAlign.CENTER,
             x_expand: true,
             style_class: 'dynisland-card-text',
