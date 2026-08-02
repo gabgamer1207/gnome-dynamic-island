@@ -17,11 +17,25 @@
 }
 
 /* State modifiers. */
+/* MODIFICA LOCALE: a riposo lo sfondo era trasparente. Con l'ora tornata al
+   pannello e idle-content = blank, la pillola restava senza testo E senza
+   sfondo: spariva del tutto e sembrava che l'estensione non funzionasse.
+   Il ritaglio dell'iPhone a riposo non e' invisibile, e' una pillola nera
+   ben presente: e' da li' che le cose crescono. Deve vedersi che c'e'. */
 .dynisland-pill.state-idle {
     padding: 2px 14px;
-    background-color: transparent;
+    min-width: 52px;
+    min-height: 18px;
+    background-color: rgba(0, 0, 0, 0.55);
     border-color: transparent;
     color: rgba(240, 240, 240, 0.75);
+}
+
+/* Anche su tema chiaro resta scura: il ritaglio della fotocamera e' nero
+   qualunque sia lo sfondo, ed e' proprio quel contrasto a renderlo leggibile
+   come un oggetto fisico invece che come un elemento dell'interfaccia. */
+.light .dynisland-pill.state-idle {
+    background-color: rgba(0, 0, 0, 0.42);
 }
 
 .dynisland-pill.state-compact {
