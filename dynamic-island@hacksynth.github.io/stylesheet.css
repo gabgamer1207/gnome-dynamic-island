@@ -131,3 +131,48 @@
 
 .light .dynisland-card-icon { color: rgba(28, 28, 30, 0.95); }
 .light .dynisland-card-subtitle { color: rgba(28, 28, 30, 0.60); }
+
+/* --- Vista musica dentro la scheda (src/views/media-view.js) ------------- */
+
+.dynisland-media { spacing: 10px; padding-top: 12px; }
+
+.dynisland-media-controls { spacing: 8px; }
+
+.dynisland-media-button {
+    border-radius: 999px;
+    padding: 7px;
+    color: #f0f0f0;
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 150ms;
+}
+.dynisland-media-button:hover { background-color: rgba(255, 255, 255, 0.18); }
+.dynisland-media-button:active { background-color: rgba(255, 255, 255, 0.26); }
+
+/* Barra: contenitore scavato, riempimento pieno. L'altezza va fissata,
+   altrimenti un St.Widget vuoto collassa a zero. */
+.dynisland-media-bar {
+    height: 4px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.16);
+}
+.dynisland-media-bar-fill {
+    height: 4px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
+.dynisland-media-times { spacing: 6px; }
+.dynisland-media-time {
+    font-size: 8pt;
+    color: rgba(240, 240, 240, 0.55);
+    font-feature-settings: "tnum";   /* cifre a larghezza fissa: non balla */
+}
+
+.light .dynisland-media-button {
+    color: #1c1c1e;
+    background-color: rgba(0, 0, 0, 0.07);
+}
+.light .dynisland-media-button:hover { background-color: rgba(0, 0, 0, 0.14); }
+.light .dynisland-media-bar { background-color: rgba(0, 0, 0, 0.14); }
+.light .dynisland-media-bar-fill { background-color: rgba(28, 28, 30, 0.85); }
+.light .dynisland-media-time { color: rgba(28, 28, 30, 0.55); }

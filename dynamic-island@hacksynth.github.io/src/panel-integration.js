@@ -14,21 +14,20 @@ export class PanelIntegration {
         this._mounted = false;
     }
 
-    // L'isola al centro mostra già l'ora a riposo: qui la togliamo dal menu
-    // data per non averne due. Va sostituita con un'icona, altrimenti il
-    // pulsante resta senza contenuto e non ci si può più cliccare sopra.
+    // MODIFICA LOCALE: qui l'orologio del pannello veniva nascosto e sostituito
+    // da un'icona, perché "tanto l'ora la mostra l'isola a riposo".
+    //
+    // È il difetto di fondo: l'isola si prendeva il mestiere dell'orologio, ma
+    // basta una notifica non letta — che è un'attività persistente — per
+    // occupare l'isola a tempo indeterminato. Risultato: l'ora sparisce dal
+    // sistema finché non svuoti il centro notifiche.
+    //
+    // L'ora non è un contenuto fra gli altri, è infrastruttura: non può
+    // dipendere da cosa sta succedendo. Ora l'orologio resta l'orologio, si
+    // sposta solo a sinistra per lasciare il centro all'isola, e l'isola sta
+    // vuota quando non ha niente da dire — come la Dynamic Island vera.
     _replaceClockWithIcon() {
-        const clock = this._dateMenu?._clockDisplay;
-        const box = clock?.get_parent();
-        if (!clock || !box) return;
-
-        this._calendarIcon = new St.Icon({
-            icon_name: 'x-office-calendar-symbolic',
-            style_class: 'system-status-icon',
-        });
-        box.insert_child_below(this._calendarIcon, clock);
-        clock.hide();
-        this._clockHidden = true;
+        // volutamente vuoto: l'orologio non si tocca più
     }
 
     _restoreClock() {

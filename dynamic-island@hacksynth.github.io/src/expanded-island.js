@@ -119,16 +119,23 @@ export class ExpandedIsland {
 
         // Vista personalizzata del provider, se c'e'. Non la distruggiamo mai:
         // e' roba sua, noi la ospitiamo e basta.
+        if (act.expandedView === this._vistaProvider) return;   // gia' montata
+
         this._staccaVistaProvider();
         if (act.expandedView) {
             this._vistaProvider = act.expandedView;
             this._slotProvider.set_child(act.expandedView);
             this._slotProvider.visible = true;
+            // Convenzione: la vista puo' esporre due hook per sapere quando e'
+            // davvero sullo schermo. Serve a non far girare timer e polling
+            // quando la scheda e' chiusa e nessuno guarda.
+            if (this._aperta) act.expandedView._dynIslandShow?.();
         }
     }
 
     _staccaVistaProvider() {
         if (this._vistaProvider) {
+            this._vistaProvider._dynIslandHide?.();
             this._slotProvider.set_child(null);
             this._vistaProvider = null;
         }
@@ -214,6 +221,7 @@ export class ExpandedIsland {
             mode: this._mode('EASE_OUT_CUBIC'),
         });
 
+        this._vistaProvider?._dynIslandShow?.();
         this._scheda.grab_key_focus();
     }
 

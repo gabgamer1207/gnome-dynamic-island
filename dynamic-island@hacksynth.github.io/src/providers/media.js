@@ -1,6 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { createActivity, _now } from '../activity.js';
+import { MediaView } from '../views/media-view.js';
 
 const MPRIS_BUS_PREFIX = 'org.mpris.MediaPlayer2.';
 const MPRIS_PATH = '/org/mpris/MediaPlayer2';
@@ -14,6 +15,7 @@ export class MediaProvider {
         this._dbus = null;
         this._busHandler = 0;
         this._players = new Map();   // busName → { proxy, propsHandler }
+        this._views = new Map();     // busName → MediaView (riusata)
         this._cancelled = false;
     }
 
@@ -50,6 +52,8 @@ export class MediaProvider {
             this._manager?.remove(`${this.id}:${name}`);
         }
         this._players.clear();
+        for (const v of this._views.values()) v.destroy();
+        this._views.clear();
         this._manager = null;
     }
 
@@ -73,6 +77,8 @@ export class MediaProvider {
         const entry = this._players.get(busName);
         if (entry) entry.proxy.disconnect(entry.propsHandler);
         this._players.delete(busName);
+        this._views.get(busName)?.destroy();
+        this._views.delete(busName);
         this._manager?.remove(`${this.id}:${busName}`);
     }
 
@@ -88,6 +94,12 @@ export class MediaProvider {
             return;
         }
 
+        // MODIFICA LOCALE: una vista per player, riusata. I metadati cambiano
+        // in continuazione (posizione, stato): ricreare la vista a ogni giro
+        // farebbe sfarfallare la copertina e ripartire l'avanzamento da zero.
+        const vista = this._vista(busName, proxy);
+        vista.update(metadata, status);
+
         this._manager.update(createActivity({
             id: `${this.id}:${busName}`,
             providerId: this.id,
@@ -96,6 +108,21 @@ export class MediaProvider {
             priority: GLib.get_monotonic_time(),   // most recently active wins (monotonic µs)
             label: title,
             sublabel: artist,
+            glyph: vista.gicon ? { icon: vista.gicon } : null,
+            expandedView: vista.actor,
         }));
+    }
+
+    _vista(busName, proxy) {
+        let v = this._views.get(busName);
+        if (!v) {
+            v = new MediaView(busName, proxy);
+            // Convenzione con la scheda espansa: l'avanzamento si interroga
+            // solo mentre la scheda e' visibile, non sempre.
+            v.actor._dynIslandShow = () => v.startPolling();
+            v.actor._dynIslandHide = () => v.stopPolling();
+            this._views.set(busName, v);
+        }
+        return v;
     }
 }
