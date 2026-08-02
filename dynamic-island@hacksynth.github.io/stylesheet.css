@@ -190,3 +190,9 @@
 .light .dynisland-media-bar { background-color: rgba(0, 0, 0, 0.14); }
 .light .dynisland-media-bar-fill { background-color: rgba(28, 28, 30, 0.85); }
 .light .dynisland-media-time { color: rgba(28, 28, 30, 0.55); }
+
+/* Orologio proprio nel box di sinistra (src/panel-integration.js) */
+.dynisland-clock-label {
+    font-weight: bold;
+    font-feature-settings: "tnum";   /* cifre a larghezza fissa: non balla */
+}

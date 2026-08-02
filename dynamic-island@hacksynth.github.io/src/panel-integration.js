@@ -1,3 +1,5 @@
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _, ngettext } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -28,6 +30,98 @@ export class PanelIntegration {
     // vuota quando non ha niente da dire — come la Dynamic Island vera.
     _replaceClockWithIcon() {
         // volutamente vuoto: l'orologio non si tocca più
+    }
+
+    // MODIFICA LOCALE: orologio nostro.
+    //
+    // Tentare di far riapparire il _clockDisplay di GNOME si e' rivelato
+    // inaffidabile: e' un componente interno, il nome puo' cambiare fra
+    // versioni, e resta nascosto per stati lasciati indietro da sessioni
+    // precedenti che non possiamo piu' ricostruire.
+    //
+    // Un'etichetta nostra e' meno elegante ma non ha nessuna di quelle
+    // dipendenze: la creiamo noi, la aggiorniamo noi, la distruggiamo noi.
+    // Per una cosa che deve semplicemente esserci sempre, e' il compromesso
+    // giusto. Il click apre comunque il calendario di GNOME, cosi' non si
+    // perde niente rispetto all'originale.
+    _creaOrologio() {
+        if (this._orologio) return;
+
+        this._orologio = new St.Button({
+            style_class: 'panel-button dynisland-clock',
+            can_focus: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._etichettaOra = new St.Label({
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'dynisland-clock-label',
+        });
+        this._orologio.set_child(this._etichettaOra);
+        this._orologio.connect('clicked', () => {
+            Main.panel.statusArea?.dateMenu?.menu?.toggle();
+        });
+
+        Main.panel._leftBox.add_child(this._orologio);
+        this._aggiornaOra();
+    }
+
+    _aggiornaOra() {
+        const adesso = GLib.DateTime.new_now_local();
+        if (this._etichettaOra) this._etichettaOra.text = adesso.format('%H:%M');
+
+        // Riallineato al minuto successivo invece che ogni 60 secondi fissi:
+        // cosi' l'ora cambia quando cambia davvero, non con un ritardo che
+        // si accumula a ogni ciclo.
+        const alProssimoMinuto = 60 - adesso.get_second();
+        this._oraId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT, alProssimoMinuto, () => {
+                this._oraId = 0;
+                this._aggiornaOra();
+                return GLib.SOURCE_REMOVE;
+            });
+    }
+
+    _distruggiOrologio() {
+        if (this._oraId) { GLib.source_remove(this._oraId); this._oraId = 0; }
+        this._orologio?.destroy();
+        this._orologio = null;
+        this._etichettaOra = null;
+    }
+
+    // MODIFICA LOCALE: recupero da versioni precedenti.
+    //
+    // Il vecchio codice nascondeva l'orologio e infilava un'icona calendario
+    // al suo posto, annullando tutto in unmount(). Ma se la shell ricarica
+    // l'estensione senza passare da unmount (crash, aggiornamento, sessione
+    // interrotta), quell'icona resta nel pannello e l'orologio resta nascosto
+    // per sempre: l'istanza nuova parte con _calendarIcon = null e non sa
+    // nemmeno che ci siano da togliere.
+    //
+    // Qui li andiamo a cercare per davvero, invece di fidarci di uno stato
+    // che potrebbe non essere mai stato scritto.
+    _recuperaOrologio() {
+        const dm = this._dateMenu;
+        if (!dm) return;
+
+        // _clockDisplay è il nome interno di GNOME; se un giorno cambia,
+        // ripieghiamo sulla prima etichetta dentro il pulsante.
+        let clock = dm._clockDisplay;
+        const box = clock?.get_parent() ?? dm.container?.get_first_child();
+        if (!box) return;
+
+        if (!clock) {
+            for (const c of box.get_children()) {
+                if (c instanceof St.Label) { clock = c; break; }
+            }
+        }
+
+        for (const c of box.get_children()) {
+            if (c !== clock && c instanceof St.Icon &&
+                c.icon_name === 'x-office-calendar-symbolic')
+                c.destroy();
+        }
+
+        clock?.show();
     }
 
     _restoreClock() {
@@ -66,9 +160,12 @@ export class PanelIntegration {
                 this._dateMenuParent.remove_child(container);
                 Main.panel._leftBox.add_child(container);
                 container.show();
-                this._dateMenu._clockDisplay?.show();   // l'ora resta l'ora
+                this._recuperaOrologio();   // toglie eventuali avanzi
             }
         }
+
+        // L'ora la mettiamo noi, a sinistra, e non dipende da nessuno.
+        this._creaOrologio();
 
         center.add_child(this._view);
         this._mounted = true;
@@ -95,6 +192,7 @@ export class PanelIntegration {
         // Rete di sicurezza: se una versione precedente aveva lasciato
         // l'orologio nascosto, qui torna visibile.
         this._restoreClock();
+        this._distruggiOrologio();
 
         if (this._dateMenu && this._dateMenuParent) {
             // Rimette il menu data dove stava, all'indice originale.
