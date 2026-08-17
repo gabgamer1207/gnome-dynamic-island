@@ -23,9 +23,18 @@
 
     <!-- Providers -->
     <key name="providers-enabled" type="as">
-      <default>['media', 'notification', 'volume-brightness', 'power', 'keyboard']</default>
+      <default>['media', 'notification', 'volume-brightness', 'power', 'keyboard',
+                'bluetooth', 'timer', 'transfers', 'screencast', 'dbus']</default>
       <summary>Enabled provider ids</summary>
+      <description>Which sources may put activities in the island. Known ids:
+      media, notification, volume-brightness, power, keyboard, bluetooth, timer,
+      transfers, screencast, dbus.</description>
     </key>
+
+    <key name="transfers-watch-dirs" type="as"><default>[]</default>
+      <summary>Extra folders watched for downloads and file transfers</summary>
+      <description>The XDG download folder is always watched. Add absolute paths
+      here to watch more; a leading ~ is expanded to the home folder.</description></key>
 
     <key name="media-show-cover-art" type="b"><default>true</default>
       <summary>Show MPRIS cover art on compact view</summary></key>
