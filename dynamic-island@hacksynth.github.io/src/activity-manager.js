@@ -7,6 +7,13 @@ export class ActivityManager {
         this._subs = new Set();
         this._hovered = false;
         this._pinned = false;
+        // MODIFICA LOCALE: catena delle attivita' persistenti.
+        //
+        // Vedi _sincronizzaCatena(). E' l'ordine di arrivo, e _primariaId dice
+        // quale di quelle occupa la pillola; il satellite e' sempre la
+        // precedente nell'anello.
+        this._catena = [];              // id, in ordine di arrivo
+        this._primariaId = null;
         this._lastVM = emptyViewModel();
         this._notify();
     }
@@ -73,21 +80,51 @@ export class ActivityManager {
         transients.sort((x, y) => y.startedAt - x.startedAt);
         const flashing = transients[0] ?? null;
 
-        // Slot assignment over persistents.
-        const byPriority = (x, y) => (y.priority - x.priority) || (x.startedAt - y.startedAt);
-        const leadingCandidates = persistents.filter(a => a.slot === 'leading' || a.slot === 'either');
-        leadingCandidates.sort(byPriority);
-        const leading = leadingCandidates[0] ?? null;
+        // MODIFICA LOCALE: una sola attivita' alla volta sulla pillola, le
+        // altre nel satellite.
+        //
+        // Prima le persistenti venivano distribuite su due posti per priorita',
+        // e con piu' di due la terza spariva senza che nessuno lo dicesse. Il
+        // caso peggiore capitava di continuo: musica piu' timer finivano una in
+        // 'leading' e una in 'trailing', ma la pillola disegna la riga della
+        // musica appena la trova in uno dei due — e del timer non restava
+        // traccia. Due attivita', una visibile.
+        //
+        // Ora c'e' una catena: l'ultima arrivata prende la pillola, la
+        // precedente si stacca nel pallino accanto, le altre restano dietro. Il
+        // pallino le fa girare. Niente si perde, e la pillola non deve piu'
+        // scegliere fra due contenuti che non sanno l'uno dell'altro.
+        this._sincronizzaCatena(persistents);
+        const perId = new Map(persistents.map(a => [a.id, a]));
+        const n = this._catena.length;
+        const i = this._catena.indexOf(this._primariaId);
 
-        const trailingCandidates = persistents.filter(
-            a => (a.slot === 'trailing' || a.slot === 'either') && a !== leading,
-        );
-        trailingCandidates.sort(byPriority);
-        const trailing = trailingCandidates[0] ?? null;
+        const leading = i >= 0 ? perId.get(this._catena[i]) ?? null : null;
+        // Il satellite mostra la PRECEDENTE nell'anello: e' quella che il click
+        // riporterebbe sulla pillola, quindi il pallino e' un'anteprima di cosa
+        // succede se lo premi, non un elenco di cosa c'e' in giro.
+        const satellite = n >= 2
+            ? perId.get(this._catena[(i - 1 + n) % n]) ?? null
+            : null;
+        const trailing = null;
 
         // Derive baseState.
+        //
+        // MODIFICA LOCALE: il passaggio del mouse non cambia piu' lo stato.
+        //
+        // Prima l'hover portava a 'expanded', che nel CSS vale min-width 320px:
+        // la pillola faceva un salto di quasi tre volte solo perche' le passavi
+        // sopra. E siccome .state-expanded non ridefinisce background-color,
+        // perdeva anche il nero di .state-idle e si accendeva di bianco.
+        //
+        // Il ritaglio dell'iPhone non reagisce al passaggio del dito: cambia
+        // forma quando cambia il contenuto, non quando lo sfiori. Il riscontro
+        // al mouse ora e' una leggera dilatazione, gestita in island-view.js
+        // come scala — non tocca ne' la geometria ne' i colori.
+        //
+        // Il pin (tasto centrale) invece resta: li' l'apertura l'hai chiesta tu.
         let baseState;
-        if (this._hovered || this._pinned) baseState = 'expanded';
+        if (this._pinned) baseState = 'expanded';
         else if (leading && trailing) baseState = 'split';
         else if (leading || trailing) baseState = 'compact';
         else baseState = 'idle';
@@ -96,11 +133,64 @@ export class ActivityManager {
             baseState,
             leading,
             trailing,
+            satellite,
+            catena: Object.freeze(this._catena.slice()),
             flashing,
             hovered: this._hovered,
             pinned: this._pinned,
             ambientOverflow: Object.freeze(ambients),
         };
+    }
+
+    // Tiene la catena allineata a cio' che e' vivo, senza rimescolarla.
+    //
+    // L'ordine e' quello di ARRIVO e non cambia piu': e' l'unica cosa che rende
+    // prevedibile il giro del pallino. Se si riordinasse per priorita' o per
+    // ultimo aggiornamento, la stessa pressione darebbe risultati diversi a
+    // seconda di cosa e' successo nel frattempo — e un comando di cui non sai
+    // prevedere l'effetto e' peggio di un comando che non c'e'.
+    //
+    // Nota su update(): il timer si riscrive ogni secondo con lo stesso
+    // identificativo. Proprio per questo la catena si indicizza per id e non
+    // per oggetto: altrimenti ogni aggiornamento sembrerebbe un arrivo nuovo e
+    // il timer si riprenderebbe la pillola una volta al secondo, rendendo
+    // impossibile guardare qualunque altra cosa.
+    _sincronizzaCatena(persistents) {
+        const vivi = new Set(persistents.map(a => a.id));
+        this._catena = this._catena.filter(id => vivi.has(id));
+
+        const nuovi = persistents
+            .filter(a => !this._catena.includes(a.id))
+            .sort((x, y) => x.startedAt - y.startedAt);
+
+        for (const a of nuovi) this._catena.push(a.id);
+
+        // Un arrivo nuovo prende la pillola: e' la cosa appena successa, ed e'
+        // quella di cui vuoi sapere. Le altre non spariscono, scalano.
+        //
+        // Le discrete no: entrano in fondo e restano li'. Se pero' la pillola
+        // e' libera la prendono lo stesso — vedi il commento su `quiet` in
+        // activity.js — e a quello ci pensa il ripiego qui sotto, che scatta
+        // proprio quando non c'e' nessuna primaria valida.
+        const rumorosi = nuovi.filter(a => !a.quiet);
+        if (rumorosi.length > 0)
+            this._primariaId = rumorosi[rumorosi.length - 1].id;
+
+        // La primaria se n'e' andata (timer finito, brano concluso): passa
+        // all'ultima rimasta, che e' la piu' recente.
+        if (!this._catena.includes(this._primariaId))
+            this._primariaId = this._catena[this._catena.length - 1] ?? null;
+    }
+
+    // Click sul satellite: la precedente nell'anello sale sulla pillola.
+    // All'indietro e in cerchio, cosi' premendo ripetutamente si passano in
+    // rassegna tutte e si torna al punto di partenza.
+    ruotaIndietro() {
+        const n = this._catena.length;
+        if (n < 2) return;
+        const i = this._catena.indexOf(this._primariaId);
+        this._primariaId = this._catena[(i - 1 + n) % n];
+        this._notify();
     }
 
     _notify() {

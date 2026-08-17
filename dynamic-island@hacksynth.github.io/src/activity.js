@@ -22,6 +22,19 @@ export function createActivity(spec) {
         providerId: spec.providerId,
         tier: spec.tier,
         slot: spec.slot,
+        // quiet: entra nella catena ma non prende il primo piano se qualcun
+        // altro ce l'ha gia'.
+        //
+        // Serve per le cose che durano molto e che non sono un evento: delle
+        // cuffie collegate restano collegate per ore, e senza questo si
+        // prenderebbero la pillola scalzando la musica — cioe' proprio cio' che
+        // ci stai ascoltando dentro — e ce la terrebbero fino a sera.
+        //
+        // Non e' "invisibile": se non c'e' nessun altro la pillola la prende
+        // comunque, altrimenti resterebbe un'attivita' viva che non compare da
+        // nessuna parte. E' solo l'ordine di precedenza a cambiare, non
+        // l'esistenza.
+        quiet: spec.quiet === true,
         priority: Number.isFinite(spec.priority) ? spec.priority : 0,
         glyph: spec.glyph ?? null,
         label: spec.label,
@@ -52,6 +65,11 @@ export function emptyViewModel() {
         baseState: 'idle',
         leading: null,
         trailing: null,
+        // satellite: la persistente precedente nell'anello, mostrata nel pallino
+        // accanto alla pillola. Null quando ce n'e' una sola: un pallino che non
+        // porta da nessuna parte e' solo un ingombro.
+        satellite: null,
+        catena: [],
         flashing: null,
         hovered: false,
         pinned: false,
