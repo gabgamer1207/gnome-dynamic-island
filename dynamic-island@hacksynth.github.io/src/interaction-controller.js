@@ -75,6 +75,17 @@ export class InteractionController {
             return;
         }
 
+        // MODIFICA LOCALE: a riposo si riapre l'ultima notifica.
+        //
+        // Qui si apriva il menu data/ora di GNOME: un gesto ereditato
+        // dall'orologio, che con l'isola non c'entrava niente. Il calendario
+        // resta raggiungibile dall'orologio nativo, che panel-integration
+        // sposta nel box di sinistra.
+        //
+        // Se non e' mai arrivata una notifica non c'e' niente da riaprire, e
+        // in quel caso si ricade sul comportamento di prima: meglio un menu
+        // che un click che non fa nulla.
+        if (this._extension?.riapriUltima?.()) return;
         this._toggleMessageList();
     }
 

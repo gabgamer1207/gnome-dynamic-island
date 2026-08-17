@@ -1,18 +1,29 @@
 /* Root pill — mounts in panel center box. */
+/* MODIFICA LOCALE: il nero sta qui, non solo su .state-idle.
+   Prima lo sfondo scuro era definito unicamente in .state-idle, mentre
+   .state-compact, .state-split e .state-expanded non ridefinivano il colore e
+   ricadevano su questo bianco trasparente: bastava una notifica, o il semplice
+   passaggio del mouse, perche' la pillola si accendesse.
+   Il ritaglio dell'iPhone non cambia mai colore — cambia forma. Il nero e'
+   costante, ed e' proprio quel contrasto fisso a farlo leggere come un
+   oggetto e non come un elemento dell'interfaccia. */
 .dynisland-pill {
-    background-color: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: rgba(0, 0, 0, 0.88);
+    border: 1px solid transparent;
     border-radius: 999px;
     color: #f0f0f0;
     padding: 4px 12px;
     min-height: 20px;
-    /* MODIFICA LOCALE: qui c'era "transition: all 220ms ease-out", che St non
-       sa interpretare: GNOME supporta solo transition-duration, non la forma
-       abbreviata ne' le timing function. Il risultato era che la pillola non
-       animava per niente e cambiava forma di scatto.
-       La geometria ora la anima island-view.js in JS, con una curva a molla;
-       questa duration copre colori e bordi. */
-    transition-duration: 250ms;
+    /* MODIFICA LOCALE: nessuna transizione CSS, ed e' voluto.
+       Qui c'era prima "transition: all 220ms ease-out" (che St non sa
+       interpretare) e poi "transition-duration: 250ms".
+       Il secondo faceva danni veri: island-view.js riscrive min-width in linea
+       sessanta volte al secondo per animare la larghezza, e ogni riscrittura
+       faceva partire una transizione CSS da 250 ms verso il nuovo valore.
+       Sessanta transizioni sovrapposte che si rincorrono, ognuna in ritardo
+       sulla successiva — da cui il guizzo dopo il click.
+       La geometria e' interamente animata in JS con una curva a molla, e i
+       colori ora sono costanti: qui non serve piu' niente. */
     /* GNOME CSS does not support backdrop-filter; we lean on base panel blur. */
 }
 
@@ -26,7 +37,7 @@
     padding: 2px 14px;
     min-width: 52px;
     min-height: 18px;
-    background-color: rgba(0, 0, 0, 0.55);
+    background-color: rgba(0, 0, 0, 0.88);
     border-color: transparent;
     color: rgba(240, 240, 240, 0.75);
 }
@@ -35,7 +46,7 @@
    qualunque sia lo sfondo, ed e' proprio quel contrasto a renderlo leggibile
    come un oggetto fisico invece che come un elemento dell'interfaccia. */
 .light .dynisland-pill.state-idle {
-    background-color: rgba(0, 0, 0, 0.42);
+    background-color: rgba(0, 0, 0, 0.88);
 }
 
 .dynisland-pill.state-compact {
@@ -58,8 +69,13 @@
     border-radius: 14px;
 }
 
+/* MODIFICA LOCALE: il lampo non schiarisce piu'.
+   Era un velo bianco: durante ogni notifica la pillola diventava chiara e
+   tradiva la finzione dell'oggetto nero. Ora si scurisce leggermente — il
+   contenuto che entra e la forma che cambia bastano gia' a segnalare
+   l'evento, il colore non deve aggiungere altro. */
 .dynisland-pill.flashing {
-    background-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(0, 0, 0, 0.92);
 }
 
 /* Split segments. */
@@ -73,10 +89,15 @@
 .dynisland-gap { min-width: 6px; }
 
 /* Light theme overrides (gnome-shell adds .light to Main.panel context). */
+/* MODIFICA LOCALE: nera anche su tema chiaro.
+   Qui la pillola diventava quasi bianca con un bordo scuro, cioe' l'opposto
+   di quello che deve essere. Il ritaglio della fotocamera e' nero qualunque
+   sia lo sfondo: e' proprio il contrasto costante a farlo leggere come un
+   oggetto fisico appoggiato sullo schermo, non come un elemento del tema. */
 .light .dynisland-pill {
-    background-color: rgba(0, 0, 0, 0.06);
-    border-color: rgba(0, 0, 0, 0.10);
-    color: #2e2e2e;
+    background-color: rgba(0, 0, 0, 0.88);
+    border-color: transparent;
+    color: #f0f0f0;
 }
 
 .light .dynisland-segment {
@@ -104,9 +125,13 @@
     background-color: transparent;
 }
 
+/* MODIFICA LOCALE: stesso nero della pillola, nessun bordo.
+   Erano rgba(28,28,30,0.92) con un bordo chiaro: un grigio con contorno
+   accanto a un nero senza. Due materiali diversi non si leggono come un
+   oggetto solo che cambia forma, e l'effetto morph si perde. */
 .dynisland-card {
-    background-color: rgba(28, 28, 30, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    background-color: rgba(0, 0, 0, 0.88);
+    border: 1px solid transparent;
     color: #f0f0f0;
     padding: 14px 18px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -136,15 +161,14 @@
 }
 
 /* Tema chiaro */
+/* Stessa ragione: la scheda nasce dalla pillola, quindi ne condivide il
+   materiale anche su tema chiaro. */
 .light .dynisland-card {
-    background-color: rgba(250, 250, 250, 0.94);
-    border-color: rgba(0, 0, 0, 0.10);
-    color: #1c1c1e;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+    background-color: rgba(0, 0, 0, 0.88);
+    border-color: transparent;
+    color: #f0f0f0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
-
-.light .dynisland-card-icon { color: rgba(28, 28, 30, 0.95); }
-.light .dynisland-card-subtitle { color: rgba(28, 28, 30, 0.60); }
 
 /* --- Vista musica dentro la scheda (src/views/media-view.js) ------------- */
 
@@ -162,37 +186,325 @@
 .dynisland-media-button:hover { background-color: rgba(255, 255, 255, 0.18); }
 .dynisland-media-button:active { background-color: rgba(255, 255, 255, 0.26); }
 
-/* Barra: contenitore scavato, riempimento pieno. L'altezza va fissata,
-   altrimenti un St.Widget vuoto collassa a zero. */
-.dynisland-media-bar {
-    height: 4px;
+/* Stessa veste dei comandi della musica, ma piu' grande: la usano il timer e la
+   registrazione, dove il pulsante e' il motivo per cui hai aperto la scheda e
+   non un accessorio accanto a una barra. 10px di spaziatura interna su un'icona
+   da 18 fanno un bersaglio da 38 pixel, che si prende senza mirare. */
+.dynisland-btn-grande {
     border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.16);
+    padding: 10px;
+    color: #f0f0f0;
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 150ms;
 }
-.dynisland-media-bar-fill {
-    height: 4px;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.85);
+.dynisland-btn-grande:hover { background-color: rgba(255, 255, 255, 0.18); }
+.dynisland-btn-grande:active { background-color: rgba(255, 255, 255, 0.26); }
+
+
+/* La barra si disegna interamente in Cairo (views/barra.js): qui serve solo che
+   prenda la larghezza disponibile. Colori e spessore stanno nel codice, perche'
+   sono gli stessi valori che servono per calcolare dove cade il pallino. */
+.dynisland-barra {
+    min-width: 220px;
 }
 
-.dynisland-media-times { spacing: 6px; }
+.dynisland-media-times { spacing: 8px; }
 .dynisland-media-time {
     font-size: 8pt;
     color: rgba(240, 240, 240, 0.55);
     font-feature-settings: "tnum";   /* cifre a larghezza fissa: non balla */
 }
 
-.light .dynisland-media-button {
-    color: #1c1c1e;
-    background-color: rgba(0, 0, 0, 0.07);
-}
-.light .dynisland-media-button:hover { background-color: rgba(0, 0, 0, 0.14); }
-.light .dynisland-media-bar { background-color: rgba(0, 0, 0, 0.14); }
-.light .dynisland-media-bar-fill { background-color: rgba(28, 28, 30, 0.85); }
-.light .dynisland-media-time { color: rgba(28, 28, 30, 0.55); }
+/* MODIFICA LOCALE: niente varianti chiare qui.
+   La scheda ora e' nera anche su tema chiaro, quindi scurire barra e testi li
+   renderebbe illeggibili: nero su nero. */
+
 
 /* Orologio proprio nel box di sinistra (src/panel-integration.js) */
 .dynisland-clock-label {
     font-weight: bold;
     font-feature-settings: "tnum";   /* cifre a larghezza fissa: non balla */
+}
+
+/* ==========================================================================
+   MODIFICA LOCALE: presentazione compatta della musica (island-view.js)
+
+   Copertina a un capo, forma d'onda all'altro, nessun testo — come fa iOS
+   quando c'e' una riproduzione in corso. Il titolo si legge aprendo la scheda.
+   ========================================================================== */
+
+.dynisland-media-compatta {
+    spacing: 8px;
+}
+
+.dynisland-copertina {
+    border-radius: 4px;
+    /* La copertina e' l'unico elemento colorato dell'isola: e' cio' che rende
+       riconoscibile a colpo d'occhio cosa sta suonando, senza leggere niente. */
+}
+
+.dynisland-onda {
+    spacing: 2px;
+}
+
+/* MODIFICA LOCALE: riga di stato compatta (timer, registrazione, download,
+   bluetooth). Stessa grammatica della musica — un indicatore e un dato — ma
+   con il testo accanto invece che sostituito, perche' qui il dato E' un numero
+   e va letto, non solo intravisto. */
+.dynisland-stato-compatto {
+    spacing: 7px;
+}
+
+/* La dimensione dell'anello la fissa il JS: qui non serve nulla, ma la classe
+   esiste perche' un tema possa raggiungerlo. */
+.dynisland-anello {
+}
+
+/* Il pallino della registrazione. Il rosso e' quello di sistema di GNOME, non
+   un rosso puro: acceso ma non fluorescente, e riconoscibile come "sta
+   registrando" anche fuori contesto. L'opacita' la muove il JS. */
+.dynisland-punto-rec {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background-color: #e01b24;
+    /* L'alone lo stacca dal nero: senza, su uno schermo poco luminoso il
+       pallino si appiattisce sullo sfondo e smette di essere un segnale. */
+    box-shadow: 0 0 6px rgba(224, 27, 36, 0.7);
+}
+
+.dynisland-icona-stato {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+/* MODIFICA LOCALE: il pallino delle altre attivita'.
+
+   Nero e tondo come l'isola, con lo stesso diametro della sua altezza: deve
+   leggersi come un pezzo staccato dello stesso oggetto, non come un'icona di
+   sistema finita li' per caso.
+
+   La larghezza NON sta qui: la scrive il JS in linea, un fotogramma alla volta,
+   perche' e' quella che si anima in entrata e in uscita. Qui c'e' solo cio' che
+   non cambia. Il margine destro e' la distanza dalla pillola. */
+.dynisland-satellite {
+    height: 28px;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0.88);
+    margin-right: 6px;
+    border: 1px solid transparent;
+}
+.dynisland-satellite:hover { border-color: rgba(255, 255, 255, 0.22); }
+.dynisland-satellite:focus { border-color: rgba(255, 255, 255, 0.55); }
+
+.dynisland-satellite-icona {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+/* Sta dentro l'anello, quindi e' piccolo per forza: due cifre al massimo, e in
+   grassetto perche' a questa dimensione il peso normale si perde sul nero. */
+.dynisland-satellite-numero {
+    font-size: 9px;
+    font-weight: 700;
+    font-feature-settings: "tnum";
+    color: #ffffff;
+}
+
+/* I dispositivi Bluetooth nella scheda aperta: un cerchio ciascuno. */
+.dynisland-bt {
+    spacing: 18px;
+    padding-top: 6px;
+}
+
+.dynisland-bt-badge {
+    spacing: 3px;
+    /* Larghezza fissa: i nomi hanno lunghezze molto diverse, e senza un limite
+       comune due cerchi affiancati finirebbero a distanze diverse dal centro
+       delle rispettive etichette. Il nome viene troncato, il cerchio no. */
+    width: 76px;
+}
+
+.dynisland-bt-icona {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.dynisland-bt-carica {
+    font-size: 13px;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+    color: #ffffff;
+}
+
+.dynisland-bt-nome {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* La registrazione nella scheda aperta. */
+.dynisland-rec {
+    spacing: 10px;
+    x-expand: true;
+}
+
+/* Il pallino grande E' il pulsante di stop.
+   Il bordo trasparente c'e' fin da subito, e serve: se comparisse solo al
+   passaggio del mouse aggiungerebbe 2px per lato e farebbe saltare il
+   pallino di quattro pixel, perche' in St il bordo occupa spazio. Cosi'
+   invece cambia solo colore, e il posto e' gia' riservato.
+   L'opacita' la muove il JS, non il CSS: una transizione dichiarata qui
+   combatterebbe con l'animazione a ogni fotogramma. */
+.dynisland-rec-pallino {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background-color: #e01b24;
+    border: 2px solid transparent;
+    box-shadow: 0 0 8px rgba(224, 27, 36, 0.65);
+}
+.dynisland-rec-pallino:hover { border-color: rgba(255, 255, 255, 0.55); }
+.dynisland-rec-pallino:focus { border-color: rgba(255, 255, 255, 0.85); }
+
+.dynisland-rec-nome {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Rosso chiaro, non quello del pallino: #e01b24 su nero, a questa dimensione,
+   e' scuro da leggere. Il pallino puo' permetterselo perche' e' una massa
+   piena; il testo no, perche' e' fatto di linee sottili. */
+.dynisland-rec-tempo {
+    font-size: 26px;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+    color: #f66151;
+}
+
+/* La scelta della durata: nastro sopra, avvio e tempo sotto. */
+.dynisland-scelta {
+    spacing: 8px;
+    padding-top: 4px;
+}
+
+/* Il nastro si disegna in Cairo, quindi la sua larghezza naturale sarebbe zero:
+   senza questo minimo la scheda — che ora si misura sul contenuto — gli si
+   stringerebbe addosso fino a farlo sparire. E' anche il margine di cui vive:
+   piu' pixel significano piu' minuti visibili ai lati dell'indice. */
+.dynisland-righello {
+    min-width: 400px;
+}
+
+.dynisland-scelta-riga {
+    spacing: 12px;
+}
+
+/* Pieno e ambra, non un contorno: e' l'unica azione della scheda, e deve
+   leggersi come tale al primo sguardo. Il testo e' scuro perche' su un fondo
+   ambra il bianco non ha contrasto sufficiente. */
+.dynisland-scelta-avvia {
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #241a00;
+    background-color: #ff9f0a;
+}
+.dynisland-scelta-avvia:hover { background-color: #ffb340; }
+.dynisland-scelta-avvia:active { background-color: #e08c00; }
+
+/* I due comandi che correggono il tempo, ai lati della cifra.
+   Piu' discreti dei principali: sfondo appena accennato e nessun contorno,
+   perche' sono una rifinitura e non devono competere con pausa e stop. */
+.dynisland-timer-regola {
+    border-radius: 999px;
+    padding: 5px;
+    color: rgba(255, 255, 255, 0.75);
+    background-color: rgba(255, 255, 255, 0.06);
+    transition-duration: 150ms;
+}
+.dynisland-timer-regola:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+}
+.dynisland-timer-regola:active { background-color: rgba(255, 255, 255, 0.24); }
+
+/* Il timer nella scheda aperta: comandi a sinistra, tempo a destra. */
+.dynisland-timer {
+    spacing: 14px;
+    x-expand: true;
+}
+
+.dynisland-timer-comandi {
+    spacing: 8px;
+}
+
+.dynisland-timer-nome {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.55);
+    padding-right: 2px;
+}
+
+/* Il tempo e' l'unica cosa grande della scheda, ed e' ambra: e' il dato per cui
+   la scheda e' stata aperta. Cifre tabulari perche' un conto alla rovescia con
+   cifre proporzionali fa oscillare tutto il blocco a ogni secondo. */
+.dynisland-timer-tempo {
+    font-size: 26px;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+    color: #ff9f0a;
+}
+
+/* Cifre a larghezza fissa: un conto alla rovescia con cifre proporzionali
+   fa ballare il testo a ogni secondo, perche' 1 e' piu' stretto di 8. La
+   pillola si ridimensiona per seguirlo, e sembra che tremi. */
+.dynisland-testo-stato {
+    font-feature-settings: "tnum";
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* Le barre hanno larghezza fissa e altezza animata dal JS. L'altezza qui e'
+   solo quella di riposo: senza un valore iniziale un St.Widget vuoto collassa
+   a zero e le barre non comparirebbero mai. */
+.dynisland-onda-barra {
+    width: 3px;
+    height: 4px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.85);
+}
+
+/* MODIFICA LOCALE: barra di avanzamento, seconda passata.
+
+   La traccia era grigia e pesante: attirava l'occhio piu' del riempimento, che
+   e' l'unica parte che porta informazione. Ora e' appena accennata — si vede
+   che c'e' spazio dove trascinare, senza competere con cio' che conta.
+
+   Traccia sottile e pallino generoso: e' la proporzione che rende chiaro che
+   l'elemento da prendere e' il secondo. Una traccia spessa quanto il pallino
+   li farebbe leggere come un'unica forma. */
+
+.dynisland-media-bar {
+    height: 3px;
+    border-radius: 999px;
+    /* Bianca anche la parte non ancora riprodotta, solo piu' scarica.
+       Era al 10%, cioe' quasi invisibile: la barra sembrava lunga quanto la
+       porzione gia' suonata, e non si capiva a che punto del brano fossi
+       rispetto alla fine. Al 28% resta chiaramente secondaria ma dice dove
+       finisce il brano — che e' meta' dell'informazione. */
+    background-color: rgba(255, 255, 255, 0.28);
+}
+
+.dynisland-media-bar-fill {
+    height: 3px;
+    border-radius: 999px;
+    background-color: #ffffff;
+}
+
+/* La dimensione la scrive il JS in linea, per poterla animare: qui restano
+   solo forma e colore. */
+.dynisland-media-handle {
+    border-radius: 999px;
+    background-color: #ffffff;
+    /* L'ombra lo stacca dalla traccia: senza, a riproduzione quasi conclusa il
+       pallino si confonderebbe col riempimento e sparirebbe. */
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
 }

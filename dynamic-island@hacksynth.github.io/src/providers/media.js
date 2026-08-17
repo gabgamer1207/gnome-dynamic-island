@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { createActivity, _now } from '../activity.js';
 import { MediaView } from '../views/media-view.js';
+import { copertina, iconaLettore } from '../copertina.js';
 
 const MPRIS_BUS_PREFIX = 'org.mpris.MediaPlayer2.';
 const MPRIS_PATH = '/org/mpris/MediaPlayer2';
@@ -89,7 +90,18 @@ export class MediaProvider {
         const artistArr = metadata['xesam:artist']?.deepUnpack?.() ?? metadata['xesam:artist'] ?? [];
         const artist = Array.isArray(artistArr) ? artistArr.join(', ') : String(artistArr);
 
-        if (status !== 'Playing' || !title) {
+        // MODIFICA LOCALE: la pausa non e' la fine.
+        //
+        // Qui si rimuoveva l'attivita' per qualunque stato diverso da
+        // 'Playing'. Premendo pausa dai comandi dell'isola, quindi, l'isola
+        // stessa perdeva la musica e con essa i comandi: per riprendere
+        // bisognava tornare a Spotify. Il pulsante di pausa si toglieva da
+        // solo la possibilita' di annullare l'effetto.
+        //
+        // In pausa la riproduzione esiste ancora, e' solo ferma: l'isola deve
+        // restare, con l'icona che diventa "riprendi". Si toglie solo a
+        // riproduzione conclusa, o se non c'e' un titolo da mostrare.
+        if (status === 'Stopped' || !title) {
             this._manager.remove(`${this.id}:${busName}`);
             return;
         }
@@ -108,9 +120,41 @@ export class MediaProvider {
             priority: GLib.get_monotonic_time(),   // most recently active wins (monotonic µs)
             label: title,
             sublabel: artist,
-            glyph: vista.gicon ? { icon: vista.gicon } : null,
+            glyph: { icon: this._icona(busName, vista) },
             expandedView: vista.actor,
         }));
+    }
+
+    // Il glyph della musica non deve MAI essere nullo.
+    //
+    // Prima lo era ogni volta che la copertina non era un file locale — cioe'
+    // quasi sempre, perche' Spotify manda un indirizzo https. Senza glyph
+    // l'isola ripiega sull'icona generica, e nel pallino accanto quella diventa
+    // tre puntini: l'utente vede "altro" al posto della sua musica.
+    //
+    // Ordine: copertina vera, se c'e' o se si riesce a scaricarla; altrimenti
+    // l'icona del lettore, ricavata dal nome del bus. Sempre qualcosa.
+    _icona(busName, vista) {
+        const url = vista.artUrl;
+        const file = copertina(url, () => {
+            // Arrivata dopo: si ripubblica l'attivita' cosi' com'e', e questa
+            // volta il file c'e'. Senza, la copertina comparirebbe solo al
+            // cambio di brano successivo.
+            const p = this._players.get(busName);
+            if (p) this._refresh(busName, p.proxy);
+        });
+        if (file) {
+            try { return new Gio.FileIcon({ file: Gio.File.new_for_path(file) }); }
+            catch (_) { /* si passa all'icona del lettore */ }
+        }
+        return iconaLettore(this._nomeApp(busName));
+    }
+
+    // org.mpris.MediaPlayer2.spotify        → spotify
+    // org.mpris.MediaPlayer2.chromium.i123  → chromium
+    _nomeApp(busName) {
+        const coda = busName.replace('org.mpris.MediaPlayer2.', '');
+        return coda.split('.')[0];
     }
 
     _vista(busName, proxy) {

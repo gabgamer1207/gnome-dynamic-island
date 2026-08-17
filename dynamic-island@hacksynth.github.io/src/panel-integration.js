@@ -1,13 +1,12 @@
-import Clutter from 'gi://Clutter';
-import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _, ngettext } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { format } from './i18n.js';
 
 export class PanelIntegration {
-    constructor(view) {
+    constructor(view, satellite = null) {
         this._view = view;
+        this._satellite = satellite;
         this._dateMenu = Main.panel.statusArea.dateMenu;
         this._dateMenuParent = null;
         this._dateMenuIndex = -1;
@@ -32,81 +31,24 @@ export class PanelIntegration {
         // volutamente vuoto: l'orologio non si tocca più
     }
 
-    // MODIFICA LOCALE: orologio nostro.
+    // MODIFICA LOCALE: rimosso l'orologio custom (era un doppione).
     //
-    // Tentare di far riapparire il _clockDisplay di GNOME si e' rivelato
-    // inaffidabile: e' un componente interno, il nome puo' cambiare fra
-    // versioni, e resta nascosto per stati lasciati indietro da sessioni
-    // precedenti che non possiamo piu' ricostruire.
+    // Qui veniva creata un'etichetta St.Label con l'ora, aggiunta al _leftBox.
+    // Aveva senso finche' l'orologio nativo veniva nascosto: serviva un
+    // sostituto. Ma la modifica precedente ha deciso — giustamente — di non
+    // nasconderlo piu', e _recuperaOrologio() ora chiama esplicitamente
+    // clock.show().
     //
-    // Un'etichetta nostra e' meno elegante ma non ha nessuna di quelle
-    // dipendenze: la creiamo noi, la aggiorniamo noi, la distruggiamo noi.
-    // Per una cosa che deve semplicemente esserci sempre, e' il compromesso
-    // giusto. Il click apre comunque il calendario di GNOME, cosi' non si
-    // perde niente rispetto all'originale.
-    _creaOrologio() {
-        if (this._orologio) return;
-
-        this._orologio = new St.Button({
-            style_class: 'panel-button dynisland-clock',
-            can_focus: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._etichettaOra = new St.Label({
-            y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'dynisland-clock-label',
-        });
-        this._orologio.set_child(this._etichettaOra);
-        this._orologio.connect('clicked', () => {
-            Main.panel.statusArea?.dateMenu?.menu?.toggle();
-        });
-
-        const box = Main.panel._leftBox;
-        log(`DYNISLAND-DIAG leftBox=${!!box} figli_prima=${box?.get_n_children()}`);
-        box.add_child(this._orologio);
-        this._aggiornaOra();
-
-        // Diagnostica: l'allocazione reale si conosce solo dopo un giro di
-        // layout, non subito dopo add_child.
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-            const [w, h] = this._orologio?.get_size() ?? [0, 0];
-            const [x, y] = this._orologio?.get_transformed_position() ?? [0, 0];
-            log(`DYNISLAND-DIAG orologio testo="${this._etichettaOra?.text}" ` +
-                `size=${w}x${h} pos=${x},${y} visible=${this._orologio?.visible} ` +
-                `opacity=${this._orologio?.opacity} mapped=${this._orologio?.mapped}`);
-            log(`DYNISLAND-DIAG leftBox figli_dopo=${box.get_n_children()} ` +
-                `boxSize=${box.get_width()}x${box.get_height()} ` +
-                `boxPos=${box.get_transformed_position()}`);
-            for (const c of box.get_children()) {
-                log(`DYNISLAND-DIAG   figlio ${c.constructor.name} ` +
-                    `visible=${c.visible} size=${c.get_width()}x${c.get_height()}`);
-            }
-            return GLib.SOURCE_REMOVE;
-        });
-    }
-
-    _aggiornaOra() {
-        const adesso = GLib.DateTime.new_now_local();
-        if (this._etichettaOra) this._etichettaOra.text = adesso.format('%H:%M');
-
-        // Riallineato al minuto successivo invece che ogni 60 secondi fissi:
-        // cosi' l'ora cambia quando cambia davvero, non con un ritardo che
-        // si accumula a ogni ciclo.
-        const alProssimoMinuto = 60 - adesso.get_second();
-        this._oraId = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT, alProssimoMinuto, () => {
-                this._oraId = 0;
-                this._aggiornaOra();
-                return GLib.SOURCE_REMOVE;
-            });
-    }
-
-    _distruggiOrologio() {
-        if (this._oraId) { GLib.source_remove(this._oraId); this._oraId = 0; }
-        this._orologio?.destroy();
-        this._orologio = null;
-        this._etichettaOra = null;
-    }
+    // Le due modifiche insieme mettevano DUE orologi nel box di sinistra:
+    // quello nativo con data e ora, e questo con la sola ora. Il click su
+    // quello custom faceva dateMenu.menu.toggle(), quindi apriva il menu
+    // dell'altro: due elementi, un solo comportamento.
+    //
+    // Vince il nativo: mostra anche la data, apre calendario e notifiche, e
+    // non dipende da codice nostro. Il custom non aggiungeva niente.
+    //
+    // Rimossi con lui _aggiornaOra(), _distruggiOrologio() e la diagnostica
+    // DYNISLAND-DIAG, che scriveva nel journal a ogni avvio.
 
     // MODIFICA LOCALE: recupero da versioni precedenti.
     //
@@ -184,14 +126,23 @@ export class PanelIntegration {
             }
         }
 
-        // L'ora la mettiamo noi, a sinistra, e non dipende da nessuno.
-        this._creaOrologio();
-
+        // Il satellite va aggiunto PRIMA della pillola: il box centrale
+        // impacchetta i figli in ordine, quindi cosi' finisce alla sua
+        // sinistra, che e' dove l'utente si aspetta l'attivita' "precedente".
+        //
+        // Sta nello stesso contenitore e non appeso sopra a coordinate
+        // assolute: cosi' il gruppo resta centrato da solo e non c'e' niente da
+        // riposizionare a mano quando la pillola cambia larghezza — cosa che fa
+        // di continuo. Il prezzo e' che la pillola scivola di mezzo pallino
+        // quando questo compare, ma il pallino entra con una molla e quello
+        // scostamento si legge come l'isola che fa spazio.
+        if (this._satellite) center.add_child(this._satellite);
         center.add_child(this._view);
         this._mounted = true;
 
         // Warn (don't fight) if other extensions added children.
         const siblings = center.get_children().filter(c => c !== this._view
+            && c !== this._satellite
             && (!this._dateMenu || c !== this._dateMenu.container));
         if (siblings.length > 0) {
             Main.notify(_('Dynamic Island'),
@@ -208,11 +159,12 @@ export class PanelIntegration {
         if (!this._mounted) return;
         const center = Main.panel._centerBox;
         if (this._view.get_parent() === center) center.remove_child(this._view);
+        if (this._satellite?.get_parent() === center)
+            center.remove_child(this._satellite);
 
         // Rete di sicurezza: se una versione precedente aveva lasciato
         // l'orologio nascosto, qui torna visibile.
         this._restoreClock();
-        this._distruggiOrologio();
 
         if (this._dateMenu && this._dateMenuParent) {
             // Rimette il menu data dove stava, all'indice originale.
