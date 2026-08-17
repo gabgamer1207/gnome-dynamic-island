@@ -1,0 +1,175 @@
+#!/bin/bash
+# ==============================================================================
+# isola — parla con la Dynamic Island dalla riga di comando.
+#
+#   isola push backup "Backup" "in corso" --progresso 0.42
+#   isola rimuovi backup
+#   isola timer 25m "Studio"
+#   isola timer-stop
+#
+# A COSA SERVE
+#
+# L'estensione espone i suoi comandi su D-Bus, che e' il modo giusto per farlo
+# ma non il modo comodo per usarlo: la chiamata equivalente al primo esempio e'
+# lunga tre righe e piena di parentesi. Questo script e' quella traduzione.
+#
+# Il vero motivo per cui esiste e' che rende l'isola programmabile da uno script
+# qualunque: la fine di una compilazione, l'avanzamento di un rsync, un
+# promemoria. E' la stessa idea delle Live Activities di iOS, con la differenza
+# che qui l'API e' una riga di shell.
+# ==============================================================================
+set -uo pipefail
+
+DEST=org.gnome.Shell.Extensions.DynamicIsland
+BASE=/org/gnome/Shell/Extensions/DynamicIsland
+
+chiama() {   # percorso, interfaccia.metodo, argomenti…
+    local percorso="$1" metodo="$2"; shift 2
+    gdbus call --session --dest "$DEST" --object-path "$percorso" \
+               --method "$metodo" "$@" 2>&1
+}
+
+errore() { echo "isola: $*" >&2; exit 1; }
+
+# Accetta 90, 90s, 25m, 1h, 1h30m — e li riduce a secondi.
+# Un timer da studio si scrive "25m", non "1500": se la forma comoda non c'e',
+# la funzione non viene usata.
+in_secondi() {
+    local t="$1" tot=0 n u
+    [[ "$t" =~ ^[0-9]+$ ]] && { echo "$t"; return; }
+    while [[ "$t" =~ ^([0-9]+)([hms])(.*)$ ]]; do
+        n="${BASH_REMATCH[1]}"; u="${BASH_REMATCH[2]}"; t="${BASH_REMATCH[3]}"
+        case "$u" in
+            h) tot=$((tot + n*3600));;
+            m) tot=$((tot + n*60));;
+            s) tot=$((tot + n));;
+        esac
+    done
+    [ -n "$t" ] && return 1
+    echo "$tot"
+}
+
+aiuto() {
+    cat <<'FINE'
+isola — Dynamic Island dalla riga di comando
+
+  isola push <id> <titolo> [sottotitolo] [opzioni]
+      --progresso N     da 0 a 1: disegna la barra di avanzamento
+      --icona NOME      icona del tema (es. folder-download-symbolic)
+      --transitorio     sparisce da solo invece di restare
+      --timeout N       secondi, solo con --transitorio (default 5)
+      --slot leading|trailing    da che lato della pillola
+
+  isola rimuovi <id>            toglie un'attivita'
+  isola elenco                  mostra gli id attivi
+  isola pulisci                 toglie tutto
+
+  isola timer                   apre il nastro sull'isola per scegliere
+  isola timer <durata> [nome]   25m, 90s, 1h30m, oppure secondi
+  isola timer-pausa             mette in pausa, o riprende
+  isola timer-piu [durata]      allunga il timer in corso (default 1 minuto)
+  isola timer-meno [durata]     lo accorcia
+  isola timer-stop
+  isola timer-stato
+
+Esempi
+
+  isola push build "Compilazione" "in corso" --progresso 0.3
+  isola push fatto "Backup finito" --transitorio --timeout 4
+  isola timer 25m Studio            # pomodoro
+FINE
+}
+
+comando="${1:-}"; shift 2>/dev/null
+
+case "$comando" in
+push)
+    id="${1:-}"; titolo="${2:-}"; shift 2 2>/dev/null
+    [ -z "$id" ] || [ -z "$titolo" ] && errore "servono almeno id e titolo (isola aiuto)"
+
+    # Il sottotitolo e' posizionale ma facoltativo: e' tale solo se non comincia
+    # con un trattino, altrimenti sarebbe la prima opzione mangiata per sbaglio.
+    sottotitolo=""
+    if [ $# -gt 0 ] && [[ "${1:-}" != -* ]]; then sottotitolo="$1"; shift; fi
+
+    opzioni=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --progresso) opzioni+=("'progress': <$2>"); shift 2;;
+            --icona)     opzioni+=("'icon': <'$2'>"); shift 2;;
+            --slot)      opzioni+=("'slot': <'$2'>"); shift 2;;
+            --priorita)  opzioni+=("'priority': <$2>"); shift 2;;
+            --timeout)   opzioni+=("'timeout': <$2>"); shift 2;;
+            --transitorio) opzioni+=("'tier': <'transient'>"); shift;;
+            *) errore "opzione sconosciuta: $1";;
+        esac
+    done
+
+    dizionario="{$(IFS=,; echo "${opzioni[*]:-}")}"
+    chiama "$BASE" "$DEST.Push" "$id" "$titolo" "$sottotitolo" "$dizionario" >/dev/null \
+        || errore "l'isola non risponde (estensione attiva? provider 'dbus' abilitato?)"
+    ;;
+
+rimuovi)
+    [ -z "${1:-}" ] && errore "serve l'id"
+    chiama "$BASE" "$DEST.Remove" "$1" >/dev/null
+    ;;
+
+elenco)
+    chiama "$BASE" "$DEST.List" | sed "s/^(\[//; s/\],)$//; s/'//g; s/, /\n/g"
+    ;;
+
+pulisci)
+    chiama "$BASE" "$DEST.Clear" >/dev/null
+    ;;
+
+timer)
+    # Senza durata si apre il nastro sull'isola: la scelta col mouse invece che
+    # con la tastiera, che e' il motivo per cui esiste.
+    if [ -z "${1:-}" ]; then
+        chiama "$BASE/Timer" "$DEST.Timer.Setup" >/dev/null \
+            || errore "l'isola non risponde (provider 'timer' abilitato?)"
+        exit 0
+    fi
+    secondi=$(in_secondi "$1") || errore "durata non riconosciuta: $1"
+    [ "$secondi" -gt 0 ] 2>/dev/null || errore "durata non riconosciuta: $1"
+    chiama "$BASE/Timer" "$DEST.Timer.Start" "$secondi" "${2:-Timer}" >/dev/null \
+        || errore "l'isola non risponde (provider 'timer' abilitato?)"
+    ;;
+
+timer-stop)
+    chiama "$BASE/Timer" "$DEST.Timer.Stop" >/dev/null
+    ;;
+
+timer-pausa)
+    chiama "$BASE/Timer" "$DEST.Timer.Toggle" >/dev/null
+    ;;
+
+timer-piu|timer-meno)
+    # Il segno lo da' il comando, la quantita' e' facoltativa: "isola timer-piu"
+    # aggiunge un minuto, che e' il caso per cui esiste.
+    q=$(in_secondi "${1:-60}") || errore "durata non riconosciuta: $1"
+    [ "$comando" = "timer-meno" ] && q="-$q"
+    chiama "$BASE/Timer" "$DEST.Timer.Add" "$q" >/dev/null
+    ;;
+
+timer-stato)
+    risposta=$(chiama "$BASE/Timer" "$DEST.Timer.Status")
+    # gdbus risponde con una tupla: (240, 'Studio'). Si spoglia dei suoi segni
+    # prima di leggerla, altrimenti la parentesi finisce nell'etichetta.
+    case "$risposta" in
+        Error*|*Error:*) errore "l'isola non risponde (provider 'timer' abilitato?)";;
+        "(0, "*)         echo "nessun timer in corso";;
+        *) echo "$risposta" | sed "s/^(//; s/)$//; s/'//g" | awk '{
+               s = $0; sub(/,.*/, "", s);             # secondi: fino alla prima virgola
+               nome = $0; sub(/^[0-9]+, /, "", nome);  # il resto: il nome, virgole comprese
+               h = int(s/3600); m = int((s%3600)/60); r = s%60;
+               if (h) printf "%s: %d:%02d:%02d\n", nome, h, m, r;
+               else   printf "%s: %d:%02d\n", nome, m, r;
+           }';;
+    esac
+    ;;
+
+aiuto|--help|-h|"") aiuto;;
+*) errore "comando sconosciuto: $comando (isola aiuto)";;
+esac
