@@ -3,3 +3,8 @@ node_modules/
 package-lock.json
 *.log
 dynamic-island@hacksynth.github.io/schemas/gschemas.compiled
+
+# Copie di sicurezza fatte a mano prima di una riscrittura. Restano sul disco
+# di chi lavora, ma non appartengono alla storia: la copia di sicurezza vera
+# e' il commit precedente.
+*.bak
